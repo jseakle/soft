@@ -154,9 +154,18 @@ class Friend extends Sprite {
 
     constructor(speed, value) {
         super('friend')
-        this.source = images['friend_source']
         this.image.loadPixels()
-        this.source.loadPixels()
+
+        for (let i = 0; i < this.image.pixels.length; i+=4) {
+            if(this.image.pixels[i] > 140 &&
+               this.image.pixels[i+1] > 140 &&
+               this.image.pixels[i+2] > 140) {
+                this.image.pixels[i] -= Math.ceil((this.value - 1) * 8)
+                this.image.pixels[i+1] -= Math.ceil((this.value - 1) * 100)
+            }
+        }
+        this.image.updatePixels()
+
         
         this.speed = speed
         this.value = value
@@ -178,7 +187,6 @@ class Friend extends Sprite {
 
         var opp_quadrant = [this.pos_vec.x <= centerpoint.x,
                             this.pos_vec.y < centerpoint.y]
-
         //pick a target in a the opposite quadrant
         var target = rnd_pt()
         var target_quad = [target.x >= centerpoint.x,
@@ -189,7 +197,9 @@ class Friend extends Sprite {
             target_quad = [target.x >= centerpoint.x,
                            target.y > centerpoint.y]
         }
+        target = p5.Vector.sub(target, centerpoint)
         target.setMag(size*3)
+        target = p5.Vector.add(target, centerpoint)
         
         this.target = target
 
@@ -207,7 +217,7 @@ class Friend extends Sprite {
     shatter() {
         this.dead = true
         play("shatter")
-        game.animations.push(new Shatter(this.pos_vec))
+        game.animations.push(new Shatter(this.pos_vec, this.value))
     }
 
     draw() {
@@ -225,16 +235,6 @@ class Friend extends Sprite {
             this.set_pos(result_vec)
         }
 
-        for (let i = 0; i < this.image.pixels.length; i+=4) {
-            if(this.source.pixels[i] > 140 &&
-               this.source.pixels[i+1] > 140 &&
-               this.source.pixels[i+2] > 140) {
-                this.image.pixels[i] = this.source.pixels[i+1] - Math.ceil((this.value - 1) * 8)
-                this.image.pixels[i+1] = this.source.pixels[i+1] - Math.ceil((this.value - 1) * 100)
-            }
-        }
-        this.image.updatePixels()
-
         super.draw()
         if(this.charge_timer > 0) {
             this.arrow.draw()
@@ -245,8 +245,21 @@ class Friend extends Sprite {
 
 class Shatter extends Sprite {
 
-    constructor(pos_vec) {
+    constructor(pos_vec, value) {
         super('shatter')
+        this.image.loadPixels()
+
+        for (let i = 0; i < this.image.pixels.length; i+=4) {
+            if(this.image.pixels[i] > 140 &&
+               this.image.pixels[i+1] > 140 &&
+               this.image.pixels[i+2] > 140) {
+                this.image.pixels[i] -= Math.ceil((this.value - 1) * 8)
+                this.image.pixels[i+1] -= Math.ceil((this.value - 1) * 100)
+            }
+        }
+        this.image.updatePixels()
+
+        this.value = value
         this.timer = framerate
         this.pos_vec = pos_vec
         this.set_position(pos_vec.x, pos_vec.y)
@@ -320,7 +333,7 @@ class Player extends Sprite {
     collide() {
         game.friends.forEach((friend) => {
             if(friend.charge_timer == 0 &&
-               friend.pos_vec.dist(this.pos_vec) < 12) {
+               friend.pos_vec.dist(this.pos_vec) < 22) {
                 if(friend.value > this.softness) {
                     friend.shatter()
                 } else {
@@ -358,18 +371,21 @@ class Player extends Sprite {
         }
         if(this.targets[0]) {
             push()
+            noStroke()
             fill(240,0,24)
             circle(this.targets[0].x, this.targets[0].y, 5)
             pop()
         }
         if(this.targets[1]) {
             push()
+            noStroke()
             fill(0,24,200)
             circle(this.targets[1].x, this.targets[1].y, 5)
             pop()
         }
         if(this.targets[2]) {
             push()
+            noStroke()
             fill(14,250,0)
             circle(this.targets[2].x, this.targets[2].y, 5)
             pop()
@@ -377,19 +393,22 @@ class Player extends Sprite {
 
         this.collide()
 
-        for (let i = 0; i < this.image.pixels.length; i+=4) {
-            if(this.source.pixels[i] > 140 &&
-               this.source.pixels[i+1] > 140 &&
-               this.source.pixels[i+2] > 140) {
-                this.image.pixels[i] = this.source.pixels[i+1] - Math.ceil((this.softness - 1) * 8)
-                this.image.pixels[i+1] = this.source.pixels[i+1] - Math.ceil((this.softness - 1) * 100)
+        if(this.softness != this.prev_softness) {
+            for (let i = 0; i < this.image.pixels.length; i+=4) {
+                if(this.source.pixels[i] > 140 &&
+                   this.source.pixels[i+1] > 140 &&
+                   this.source.pixels[i+2] > 140) {
+                    this.image.pixels[i] = this.source.pixels[i+1] - Math.ceil((this.softness - 1) * 8)
+                    this.image.pixels[i+1] = this.source.pixels[i+1] - Math.ceil((this.softness - 1) * 100)
+                }
             }
+            this.image.updatePixels()
+            this.image.mask(images["cloud_mask"])
+            this.prev_softness = this.softness
         }
-        this.image.updatePixels()
-        this.image.mask(images["cloud_mask"])
-
         
         super.draw()
+        circle(this.center_x, this.center_y, 22)
     }
 }
 
@@ -429,7 +448,6 @@ function preload() {
         "cloud": loadImage("images/cloud.png"),
         "cloud_source": loadImage("images/cloud.png"),
         "friend": loadImage("images/friend.png"),
-        "friend_source": loadImage("images/friend.png"),
         "arrow": loadImage("images/arrow.png"),
         "shatter": loadImage("images/shatter.png"),
         "soft": loadImage("images/soft.png"),
@@ -533,7 +551,7 @@ class Game {
             this.friend_timer -= 1
         } else {
             this.friend_count += 1
-            var value = randrange(1, this.friend_count % 3)
+            var value = randrange(2, this.friend_count % 3)
             this.friends.push(new Friend(5, value))
             this.friend_timer = framerate * this.friend_rate
             this.friend_rate += .07
