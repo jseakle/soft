@@ -15,7 +15,6 @@ function randrange(min, max, f) {
         max = Math.max(min, Math.floor(max));
     }
     if(f) {
-        print(123)
         return Math.random() * (max - min) + min
     }
     return Math.floor(Math.random() * (max - min)) + min;
@@ -91,7 +90,7 @@ class Speed extends Sprite {
     constructor() {
         super("speed")
         this.scale = .25
-        this.set_pos(createVector(size + 140, 190))
+        this.set_pos(createVector(size + 145, 190))
     }
 
     draw() {
@@ -117,7 +116,8 @@ class Score extends Sprite {
         push()
         fill(0,0,0)
         textSize(28)
-        text("" + int(game.score * 10), this.center_x + 80 + ((game.score > 9 || game.score < -1) ? 15 : 0), this.center_y + 15)
+        var txt = "" + int(game.score * 10)
+        text(txt, this.center_x + 60 + txt.length * 15, this.center_y + 15)
         pop()
     }
 }
@@ -128,7 +128,7 @@ class Softness extends Sprite {
     constructor() {
         super("softness")
         this.scale = .3
-        this.set_pos(createVector(size + 120, 230))
+        this.set_pos(createVector(size + 115, 230))
     }
 
     draw() {
@@ -136,7 +136,7 @@ class Softness extends Sprite {
         push()
         fill(0,0,0)
         textSize(28)
-        text("" + int(game.player.softness * 10), this.center_x + 115 + (game.player.softness > 9 ? 15 : 0), this.center_y + 20)
+        text("" + int(game.player.softness * 10), this.center_x + 120 + (game.player.softness > 9 ? 15 : 0), this.center_y + 20)
         pop()
     }
 }
@@ -202,9 +202,12 @@ class Cookie extends Sprite {
     eat() {
         if(!this.dead) {
             play("chomp")
+            game.hunger -= 1
+            if(game.hunger < 0) {
+                game.hunger = 0
+            }
         }
         this.dead = true
-        game.hunger -= 1
         this.grant()
         
     }
@@ -225,12 +228,11 @@ class Soft extends Cookie {
     grant() {
         game.player.softness += .2
         game.animations.push(new SoftAnim(2))
-        print(game.animations)
-        game.player.size += 1
-        game.player.scale += .003
+        game.player.size += 1.2
+        game.player.scale += .005
         game.player.speed -= .2
         game.animations.push(new SpeedAnim(-2))
-        game.player.distance += 3
+        game.player.distance += 5
         game.animations.push(new DistAnim(3))
                               
     }
@@ -260,12 +262,10 @@ class Short extends Cookie {
 
     grant() {
         if(game.player.distance > 50) {
-            print(game.player.scale)
             game.player.distance -= 7
             game.animations.push(new DistAnim(-7))
             game.player.size -= .25
             game.player.scale -= .001
-            print(game.player.scale)
 
         }
     }
@@ -343,21 +343,26 @@ class Friend extends Sprite {
         if(!this.dead) {
             play("score")
             game.score += this.value
+            game.player.distance += 5
+            game.animations.push(new DistAnim(2))
         }
         this.dead = true
     }
 
     shatter() {
         if(!this.dead) {
-            game.score -= this.value
             play("shatter")
             game.animations.push(new Shatter(this.pos_vec, this.value))
+            if(game.hunger > 0) {
+                game.score -= this.value
+            }
+
         }
         this.dead = true
     }
 
     draw() {
-        if(this.pos_vec.dist(centerpoint) > boardsize / 2) {
+        if(this.pos_vec.dist(centerpoint) > boardsize / 2 && game.hard) {
             this.shatter()
             return
         }
@@ -366,9 +371,17 @@ class Friend extends Sprite {
             this.charge_timer -= 1
             this.arrow.angle = mov_vec.heading()
         } else {
+            if(this.speed >= this.pos_vec.dist(this.target)) {
+                mov_vec.setMag(this.pos_vec.dist(this.target))
+            }
             mov_vec.setMag(this.speed)
             var result_vec = p5.Vector.add(this.pos_vec, mov_vec)
             this.set_pos(result_vec)
+        }
+
+        if(this.pos_vec.x == this.target.x &&
+           this.pos_vec.y == this.target.y) {
+            this.dead = true
         }
 
         super.draw()
@@ -431,7 +444,7 @@ class SoftAnim {
             push()
             noStroke()
             if(this.value > 0) {
-                fill(47, 235, 63)
+                fill(48, 176, 69)
             } else {
                 fill(237, 24, 0)
             }
@@ -457,7 +470,7 @@ class SpeedAnim {
             push()
             noStroke()
             if(this.value > 0) {
-                fill(47, 235, 63)
+                fill(48, 176, 69)
             } else {
                 fill(237, 24, 0)
             }
@@ -482,7 +495,7 @@ class DistAnim {
             push()
             noStroke()
             if(this.value > 0) {
-                fill(47, 235, 63)
+                fill(48, 176, 69)
             } else {
                 fill(237, 24, 0)
             }
@@ -505,7 +518,7 @@ class Player extends Sprite {
         this.scale = .06
 
         this.size = 0
-        this.speed = 3
+        this.speed = 3.2
         this.distance = 150
         this.targets = [null, null, null]
         this.softness = .8
@@ -556,9 +569,10 @@ class Player extends Sprite {
         game.friends.forEach((friend) => {
             if(friend.charge_timer == 0 &&
                friend.pos_vec.dist(this.pos_vec) < 22 + this.size) {
-                if(friend.value > this.softness) {
+                if(friend.value > this.softness && game.hard) {
                     friend.shatter()
-                } else {
+                } else if (friend.value <= this.softness &&
+                           this.pos_vec.dist(centerpoint) < boardsize / 2) {
                     friend.get_caught()
                 }
             }
@@ -689,6 +703,8 @@ function preload() {
         "score": loadSound("sounds/score.wav"),
     }
 
+    sounds["shatter"].setVolume(.12)
+
 }
 
 function setup() {
@@ -738,6 +754,7 @@ class Game {
         this.cookie_timer = framerate * this.cookie_rate
         this.animations = []
         this.panel_elements = []
+        this.hard = false
     }
 
     setup() {
@@ -759,6 +776,10 @@ class Game {
         } else if(k == 82) { //r
             game = new Game()
             game.setup()
+        } else if(k == 72) { //h
+            game = new Game()
+            game.setup()
+            game.hard = !game.hard
         }
     }
 
@@ -786,10 +807,23 @@ class Game {
     
 
     draw() {
-        background(245, 162, 228)
-        noFill()
-        stroke(0,0,0)
-        circle(centerpoint.x, centerpoint.y, boardsize)
+        if(!this.hard) {
+            push()
+            background(245, 162, 228)
+            noFill()
+            strokeWeight(3)
+            stroke(0,0,0)
+            circle(centerpoint.x, centerpoint.y, boardsize)
+            pop()
+        } else {
+            push()
+            background(254, 240, 255)
+            fill(245, 162, 228)
+            strokeWeight(3)
+            stroke(0,0,0)
+            circle(centerpoint.x, centerpoint.y, boardsize)
+            pop()
+        }
 
         
         if(this.hunger > 0) {
@@ -807,12 +841,13 @@ class Game {
                 } else {
                     value = randrange(1 + this.friend_count / 15, 2 + this.friend_count / 11, true)
                 }
-                print(this.player.softness, value)
-                this.friends.push(new Friend(value))
-                this.friend_timer = framerate * this.friend_rate
-                this.friend_rate -= .05
-                if(this.friend_rate < .5) {
-                    this.friend_rate = .5
+                if(this.hard || this.friend_count < 100) {
+                    this.friends.push(new Friend(value))
+                    this.friend_timer = framerate * this.friend_rate
+                    this.friend_rate -= .08
+                    if(this.friend_rate < .5) {
+                        this.friend_rate = .5
+                    }
                 }
             }
 
@@ -822,7 +857,7 @@ class Game {
                 this.cookies.push(choice([new Soft(), new Fast(), new Soft(), new Fast(), new Short()]))
 
                 this.cookie_timer = framerate * this.cookie_rate
-                this.cookie_rate -= .02
+                this.cookie_rate -= .015
                 if(this.cookie_rate < .5) {
                     this.cookie_rate = .5
                 }
@@ -830,12 +865,12 @@ class Game {
         }
 
         this.animations = this.animations.filter(anim => anim.timer > 0)
-        
-        this.friends.forEach((friend) => {
-            friend.draw()
-        })
+
         this.cookies.forEach((cookie) => {
             cookie.draw()
+        })
+        this.friends.forEach((friend) => {
+            friend.draw()
         })
         this.animations.forEach((anim) => {
             anim.draw()
