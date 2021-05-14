@@ -362,10 +362,15 @@ class Friend extends Sprite {
     }
 
     draw() {
-        if(this.pos_vec.dist(centerpoint) > boardsize / 2 && game.hard) {
-            this.shatter()
-            return
-        }
+        if(this.pos_vec.dist(centerpoint) > boardsize / 2) {
+            if(game.hard) {
+                this.shatter()
+                return
+            } else if(!this.softshattered) {
+                play("softshatter")
+                this.softshattered = true
+            }
+        } 
         var mov_vec = p5.Vector.sub(this.target, this.pos_vec)
         if(this.charge_timer > 0) {
             this.charge_timer -= 1
@@ -574,6 +579,12 @@ class Player extends Sprite {
                 } else if (friend.value <= this.softness &&
                            this.pos_vec.dist(centerpoint) < boardsize / 2) {
                     friend.get_caught()
+                } else {
+                    if(!friend.softshattered) {
+                        print(friend.softshattered)
+                        friend.softshattered = true
+                        play("softshatter")
+                    }
                 }
             }
         })
@@ -701,9 +712,11 @@ function preload() {
         "shatter": loadSound("sounds/shatter.wav"),
         "chomp": loadSound("sounds/chomp.wav"),
         "score": loadSound("sounds/score.wav"),
+        "softshatter": loadSound("sounds/uhuh.wav"),
     }
 
     sounds["shatter"].setVolume(.12)
+    sounds["softshatter"].setVolume(.3)
 
 }
 
@@ -774,12 +787,15 @@ class Game {
         } else if(k == 77) { //m
             this.muted = !this.muted
         } else if(k == 82) { //r
+            var hard = game.hard
             game = new Game()
             game.setup()
+            game.hard = hard
         } else if(k == 72) { //h
+            var hard = !game.hard
             game = new Game()
             game.setup()
-            game.hard = !game.hard
+            game.hard = hard
         }
     }
 
